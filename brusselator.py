@@ -119,8 +119,8 @@ if __name__ == '__main__':
     FFMpegWriter = animation.writers['ffmpeg']
 #    metadata = dict(title='1D Fizhugh-Nagumo', artist='Matplotlib', comment='Movie support!')
     writer = FFMpegWriter(fps=30, bitrate=1500)
-    anim.save('{}.mp4'.format(time.strftime("%Y%m%d-%H%M%S")), writer=writer)
-#    plt.show()
+    # anim.save('{}.mp4'.format(time.strftime("%Y%m%d-%H%M%S")), writer=writer)
+    plt.show()
 #==============================================================================
     print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
     toc = time.clock()

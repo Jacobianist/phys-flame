@@ -7,29 +7,35 @@ Created on Wed Sep 27 16:37:24 2017
 import time
 import numpy as np
 from numba import jit
-import numpy.linalg as nlin
 import scipy.linalg as slin
+import numpy.linalg as nlin
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from matplotlib import rcParams
 import seaborn as sns
-
+# from matplotlib import rcParams
 # this changes the dpi of figures saved from plt.savefig()
-rcParams['savefig.dpi'] = 300
+# rcParams['savefig.dpi'] = 300
 
 
+# FitzHugh–Nagumo model function
+# @jit
 def f(xy):
-    return np.array([(-xy[0]*(xy[0]-A)*(xy[0]-1) - xy[1])*500, xy[0] - xy[1]])
+    return np.array([500*(-xy[0]*(xy[0] - A)*(xy[0] - 1) - xy[1]), 
+                        xy[0] - xy[1]])
 
 
+# Runge Kutta 4th
+# @jit
 def RK4(xy):
     k1 = dt * f(xy)
-    k2 = dt * f(xy + 0.5*k1)
-    k3 = dt * f(xy + 0.5*k2)
+    k2 = dt * f(xy + 0.5 * k1)
+    k3 = dt * f(xy + 0.5 * k2)
     k4 = dt * f(xy + k3)
-    return xy + (k1 + 2*k2 + 2*k3 + k4)/6
+    return xy + (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
 
+# Tridiagonal matrix for Crank–Nicolson method to banded matrix for
+# scipy.linalg.solve_banded()
 def trid(Ny, ksi):
     a = np.ones(Ny+1)*(-ksi)    # above main diag
     c = a.copy()                # under main diagonal
@@ -40,11 +46,9 @@ def trid(Ny, ksi):
     return [np.vstack((a[i], b[i], c[i])) for i in [0, 1]]     # banded matrix for solve_banded()
 
 
-def fn(L, Nx, dt, T, w=1.):
-    x = np.linspace(0, L, Nx+1)     # mesh points in space
+# 1D Fisher-KPP model
+def fn(L, Nx, x, dx, T, dt, Nt, w=1.):
     D = np.array([w, .0])           # diff coeficient Dx Dy
-    dx = x[1]-x[0]                  # space step
-    Nt = int(round(2*T/dt))         # num 2x temp points
     ksi = 0.5*D*dt/dx**2            # help var
     initialFunc = np.zeros((2, Nx+1))
     initialFunc[0] = 1/(1+np.exp((x-1)/0.25))
@@ -52,6 +56,7 @@ def fn(L, Nx, dt, T, w=1.):
     q = initialFunc[:]
     R = []
     R.append(q.copy())
+# =============================================================================
     a = np.ones(Nx+1)*(-ksi[:, np.newaxis])    # above main diag
     c = a.copy()                # under main diagonal
     a[:, 0], c[:, -1] = 0, 0
@@ -59,6 +64,7 @@ def fn(L, Nx, dt, T, w=1.):
     c[:, -2] = -2.*ksi
     b = np.ones(Nx+1)*(2*ksi[:, np.newaxis] + 1)    # main diag
     ab = np.array([np.vstack((a[i], b[i], c[i])) for i in [0, 1]])     # banded matrix for solve_banded()
+# =============================================================================
     side = np.zeros((Nx+1, 2))
 
     @jit
@@ -71,7 +77,7 @@ def fn(L, Nx, dt, T, w=1.):
         k3 = dt * f1(xy + 0.5*k2)
         k4 = dt * f1(xy + k3)
         return (xy + (k1 + 2*k2 + 2*k3 + k4)/6)
-    for timeStep in range(Nt):
+    for timeStep in range(2*Nt):
         runge = RK(q)
         side[0] = runge[:, 0] + ksi*2*(q[:, 1] - q[:, 0])
         for i in range(1, Nx):
@@ -82,8 +88,10 @@ def fn(L, Nx, dt, T, w=1.):
     R = np.array(R)
     return R
 
+# one iteration of alternating direction implicit method
+# with PERIODIC CONDITIONS
 def solveFN(Nx, Ny, ksi, q, ab, A):
-    runge = RK4(q)  # runge-kutta solver
+    runge = RK4(q)
     side0, side1 = np.zeros((2, Nx+1, Ny+1))
     for i in range(Nx+1):
         for j in range(1, Ny):
@@ -104,79 +112,79 @@ def solveFN(Nx, Ny, ksi, q, ab, A):
     q = np.array((q0, q1))
     return q
 
-if __name__ == '__main__':
-    tic = time.clock()
-#    plt.ioff()
-    print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
-    L = 20                     # space
-    Nx = 200                   # num space points
-    Ny = 200
-    x = np.linspace(0, L, Nx+1)   # mesh points in space
-    y = np.linspace(0, L, Ny+1)
-    D = np.array([1, .0])     # diff coeficient Dx Dy
-    T = 5                   # final temperature
-    dx = x[1] - x[0]           # space step
-    dt = 0.005
-    Nt = round(T/dt)      # num temp points
-    t = np.linspace(0, T, Nt+1)  # mesh points in time
-    ksi = 0.5*D*dt/dx**2       # help var
-###############################################################################
-    # Initiation of transverse wave
-    rangeOf = fn(L, Nx, dt, T, 0.001)
-    rangeOf = rangeOf[:, 1, :]
-    rangeOf = 0.6 - 0.5*rangeOf
-###############################################################################
-    initialFunc = np.zeros((2, Nx+1, Ny+1))
-    initialFunc[0] = np.genfromtxt('1.out')
-    initialFunc[1] = np.genfromtxt('2.out')
-    q = initialFunc.copy()
-#    # additional vars for tridiagonal solver
-    ab = np.empty((2, Nx+1, Nx+1))
-    for i in range(2):
-        ab[i] = np.diagflat(np.ones(Nx)*(-ksi[i]),-1) +\
-                np.diagflat(np.ones(Nx+1)*(2*ksi[i] + 1)) +\
-                np.diagflat(np.ones(Nx)*(-ksi[i]), 1)
-        ab[i][0,-1] = -ksi[i]
-        ab[i][-1,0] = -ksi[i]
+# if __name__ == '__main__':
+tic = time.clock()
+print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
+L = 10                      # space
+Nx = 100                    # space points
+Ny = 100
+x = np.linspace(0, L, Nx+1) # mesh points in space
+y = np.linspace(0, L, Ny+1)
+dx = x[1] - x[0]            # space step
+T = 1                       # final time
+dt = 0.005                  # time step
+Nt = round(T/dt)            # time points
+t = np.linspace(0, T, Nt+1) # mesh points in time
+D = np.array([1, .0])       # diffusion coefficient Dx Dy
+ksi = 0.5*D*dt/dx**2        # help var
 
-    parA = 50
-    Qu, Qv = [], []
-#    A = 0.1*np.ones((Nx+1,Nx+1))
-    for iteration in range(Nt):
-        A = np.meshgrid(rangeOf[parA], rangeOf[parA])[1]
-        q = solveFN(Nx, Ny, ksi, q, ab, A)
-        Qu.append(q[0])
-#        Qu.append(A)
-#        Qv.append(q[1])
-        parA += 1
-        if iteration % 100 == 0: print(iteration,"/",Nt,"||",time.strftime("%H:%M:%S", time.localtime()))
-    Qu = np.asarray(Qu)
-#    Qu, Qv = np.asarray(Qu), np.asarray(Qv)
+# initial function
+initialFunc = np.zeros((2, Nx+1, Ny+1))
+initialFunc[0] = np.genfromtxt('1.out')[::2]
+initialFunc[1] = np.genfromtxt('2.out')[::2]
+# =============================================================================
+# Initiation of transverse wave
+rangeOf = fn(L, Nx, x, dx, T, dt, Nt, 0.001)
+rangeOf = rangeOf[:, 1, :]
+rangeOf = 0.6 - 0.5*rangeOf
+# =============================================================================
 
-###############################################################################
-# Plotting block
-    plt.ioff()
-    plt.close('all')
-#    plt.style.use('fivethirtyeight')
-    fig = plt.figure()
-    im = plt.imshow(Qu[0], animated=True, vmin=np.min(Qu), vmax=np.max(Qu), extent=(0,20,20,0))
-    ax = plt.gca()
-    ax.grid(False)
-    plt.colorbar()
+q = initialFunc.copy()
+ab = np.empty((2, Nx+1, Nx+1))
+for i in range(2):
+    ab[i] = np.diagflat(np.ones(Nx)*(-ksi[i]),-1) +\
+            np.diagflat(np.ones(Nx+1)*(2*ksi[i] + 1)) +\
+            np.diagflat(np.ones(Nx)*(-ksi[i]), 1)
+    ab[i][0,-1] = -ksi[i]
+    ab[i][-1,0] = -ksi[i]
+
+parA = 10
+Qu, Qv = [], [] # all resolve
+
+for iteration in range(Nt):
+    A = np.meshgrid(rangeOf[parA], rangeOf[parA])[1]
+    q = solveFN(Nx, Ny, ksi, q, ab, A)
+    Qu.append(q[0])
+    Qv.append(q[1])
+    parA += 1
+    if iteration % 100 == 0: print(iteration,"/",Nt,"||",time.strftime("%H:%M:%S", time.localtime()))
+Qu, Qv = np.asarray(Qu), np.asarray(Qv)
+
+# =============================================================================
+# Plot block
+# plt.ioff()
+# plt.ion()
+plt.close('all')
+plt.style.use('fivethirtyeight')
+fig = plt.figure()
+im = plt.imshow(Qu[0], animated=True, vmin=np.min(Qu), vmax=np.max(Qu), extent=(0,L,L,0))
+ax = plt.gca()
+ax.grid(False)
+plt.colorbar()
+def animate(z):
+    im.set_array(Qu[z])
+    plt.suptitle('time: {:03f}s'.format(t[z]))
     plt.tight_layout()
-    def animate(z):
-        im.set_array(Qu[z])
-        plt.suptitle('time: {:03f}s'.format(t[z]))
-        return im,
-    anim = animation.FuncAnimation(fig, animate, range(0, Nt), interval=10)
-    FFMpegWriter = animation.writers['ffmpeg']
-#    metadata = dict(title='heat dynamic', artist='Matplotlib')
-    writer = FFMpegWriter(fps=60, bitrate=1500)
-    print(time.strftime("%H:%M:%S", time.localtime()), 'animation saving...')
-    anim.save('FNKPP_PBC_{}.mp4'.format(time.strftime("%Y%m%d-%H%M%S")), writer=writer)
-#    plt.show()
-#    plt.ion()
-###############################################################################
-    print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
-    toc = time.clock()
-    print("%5.3f" % (toc-tic))
+    return im,
+anim = animation.FuncAnimation(fig, animate, range(0, Nt), interval=10)
+# =============================================================================
+# Animation save block
+# FFMpegWriter = animation.writers['ffmpeg']
+# metadata = dict(title='heat dynamic', artist='Matplotlib')
+# writer = FFMpegWriter(fps=60, bitrate=1500)
+# print(time.strftime("%H:%M:%S", time.localtime()), 'animation saving...')
+# anim.save('FN_KPP_PBC_{}.mp4'.format(time.strftime("%Y%m%d-%H%M%S")), writer=writer)
+print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
+toc = time.clock()
+print("%5.3f" % (toc-tic))
+plt.show()
