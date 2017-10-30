@@ -74,7 +74,7 @@ ee = .02    # main
 qq = .02    # vars
 # ff = 2.5*np.ones(Nx+1)
 # ff[:5] = 1.5
-ff = -2/(1 + np.exp((x - 1)/0.25)) + 2.5    # with reverb
+ff = -2/(1 + np.exp((x - 2)/0.25)) + 2.5    # with reverb
 
 # initial functions
 initialFunc = np.zeros((2, Nx+1))
