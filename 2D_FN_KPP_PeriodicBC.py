@@ -20,7 +20,7 @@ import seaborn as sns
 # FitzHugh–Nagumo model function
 # @jit
 def f(xy):
-    return np.array([500*(-xy[0]*(xy[0] - A)*(xy[0] - 1) - xy[1]), 
+    return np.array([500*(-xy[0]*(xy[0] - A)*(xy[0] - 1) - xy[1]),
                         xy[0] - xy[1]])
 
 
@@ -48,28 +48,26 @@ def trid(Ny, ksi):
 
 # 1D Fisher-KPP model
 def fn(L, Nx, x, dx, T, dt, Nt, w=1.):
-    D = np.array([w, .0])           # diff coeficient Dx Dy
+    D = w           # diff coeficient Dx Dy
     ksi = 0.5*D*dt/dx**2            # help var
-    initialFunc = np.zeros((2, Nx+1))
-    initialFunc[0] = 1/(1+np.exp((x-1)/0.25))
-    initialFunc[1] = 1/(1+np.exp((x-3)/0.5))
+    initialFunc = 1/(1+np.exp((x-1)/0.25))
     q = initialFunc[:]
     R = []
     R.append(q.copy())
 # =============================================================================
-    a = np.ones(Nx+1)*(-ksi[:, np.newaxis])    # above main diag
+    a = np.ones(Nx+1)*(-ksi)    # above main diag
     c = a.copy()                # under main diagonal
-    a[:, 0], c[:, -1] = 0, 0
-    a[:, 1] = -2.*ksi
-    c[:, -2] = -2.*ksi
-    b = np.ones(Nx+1)*(2*ksi[:, np.newaxis] + 1)    # main diag
-    ab = np.array([np.vstack((a[i], b[i], c[i])) for i in [0, 1]])     # banded matrix for solve_banded()
+    a[0], c[-1] = 0, 0
+    a[1] = -2.*ksi
+    c[-2] = -2.*ksi
+    b = np.ones(Nx+1)*(2*ksi + 1)    # main diag
+    ab = np.vstack((a, b, c))     # banded matrix for solve_banded()
 # =============================================================================
-    side = np.zeros((Nx+1, 2))
+    side = np.zeros(Nx+1)
 
     @jit
     def f1(xy):
-        return 7*np.array([xy[0]*(1-xy[0]), 5*xy[0]*(1-xy[0])-xy[1]])
+        return 7*xy*(1-xy)
     @jit
     def RK(xy):
         k1 = dt * f1(xy)
@@ -79,14 +77,15 @@ def fn(L, Nx, x, dx, T, dt, Nt, w=1.):
         return (xy + (k1 + 2*k2 + 2*k3 + k4)/6)
     for timeStep in range(2*Nt):
         runge = RK(q)
-        side[0] = runge[:, 0] + ksi*2*(q[:, 1] - q[:, 0])
+        side[0] = runge[0] + ksi*2*(q[1] - q[0])
         for i in range(1, Nx):
-            side[i] = runge[:, i] + ksi*(q[:, i-1] - 2*q[:, i] + q[:, i+1])
-        side[-1] = runge[:, -1] + ksi*2*(q[:, -2] - q[:, -1])
-        q = np.array(list(map(lambda x: slin.solve_banded((1, 1), ab[x], side.T[x]), [0, 1])))
+            side[i] = runge[i] + ksi*(q[i-1] - 2*q[i] + q[i+1])
+        side[-1] = runge[-1] + ksi*2*(q[-2] - q[-1])
+        q = slin.solve_banded((1, 1), ab, side)
         R.append(q.copy())
     R = np.array(R)
     return R
+
 
 # one iteration of alternating direction implicit method
 # with PERIODIC CONDITIONS
