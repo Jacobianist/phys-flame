@@ -67,7 +67,7 @@ def fn(L, Nx, x, dx, T, dt, Nt, w=1.):
 
     @jit
     def f1(xy):
-        return 7*xy*(1-xy)
+        return 5*xy*(1-xy)
     @jit
     def RK(xy):
         k1 = dt * f1(xy)
@@ -119,7 +119,7 @@ Ny = 100
 x = np.linspace(0, L, Nx+1) # mesh points in space
 y = np.linspace(0, L, Ny+1)
 dx = x[1] - x[0]            # space step
-T = 2                       # final time
+T = 1.5                       # final time
 dt = 0.005                  # time step
 Nt = round(T/dt)            # time points
 t = np.linspace(0, T, Nt+1) # mesh points in time
@@ -143,7 +143,7 @@ Qu, Qv = [], [] # all resolve
 
 for iteration in range(Nt):
     A = np.meshgrid(rangeOf[parA], rangeOf[parA])[1]
-    A[:, :5] = 0.6-3*A[:, :5]   # reverv var
+    A[:, :5] = 0.6-4*A[:, :5]   # reverv var
     A[:, 5:] = 0.6-2*A[:, 5:]   # oscill var
     q = solveFN(Nx, Ny, ksi, q, ab, A)
     Qu.append(q[0])

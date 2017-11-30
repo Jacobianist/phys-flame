@@ -11,18 +11,18 @@ import seaborn as sns
 tic = time.clock()
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
 L = 10
-T = 5
+T = 3
 Nx = 100
 x = np.linspace(0, L, Nx+1)     # mesh points in space
-D = .1           # diff coeficient Dx Dy
+D = 0.001                       # diff coeficient Dx Dy
 dx = x[1]-x[0]                  # space step
 dt = 0.005
 Nt = int(round(2*T/dt))         # num 2x temp points
 t = np.linspace(0,T,Nt+1)
 ksi = 0.5*D*dt/dx**2            # help var
-initialFunc = np.zeros(Nx+1)
-initialFunc[30:50] += 0.1
-# initialFunc = 1/(1+np.exp((x-1)/0.25))
+#initialFunc = np.zeros(Nx+1)
+#initialFunc[:10] += 0.1
+initialFunc = 1/(1+np.exp((x-1)/0.25))
 q = initialFunc[:]
 R = []
 R.append(q.copy())
@@ -37,7 +37,7 @@ side = np.zeros(Nx+1)
 
 # @jit
 def f1(xy):
-    return 5*xy*(1-xy)
+    return 1*xy*(1-xy)
 
 # @jit
 def RK(xy):
@@ -61,7 +61,7 @@ R = np.array(R)
 def animate(i):
 # The plot shows the temperature evolving with time
     ax1.clear()
-    plt.plot(x, R[i], color='red', label='u')#+str(round(t[i], 2))+'s')
+    plt.plot(x, (1-R[i]), color='red', label='u')#+str(round(t[i], 2))+'s')
     plt.grid(True)
     plt.ylim([np.min(R), np.max(R)])
     plt.xlim([0, L])
