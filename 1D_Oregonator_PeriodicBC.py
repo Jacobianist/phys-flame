@@ -1,8 +1,8 @@
 import time
-import sys
 import numpy as np
 from numba import jit
 import scipy.linalg as slin
+import numpy.linalg as nlin
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import seaborn as sns
@@ -25,6 +25,8 @@ def animate(i):
     ax1.clear()
     plt.plot(x, R[i][0], color='red', label='u')
     plt.plot(x, R[i][1], color='blue', label='v')
+#    plt.plot(x, Qu[i,0,:], color='red', label='u')
+#    plt.plot(x, Qv[i,0,:], color='blue', label='v')
     plt.grid(True)
     plt.ylim([np.min(R), np.max(R)])
     plt.xlim([0, L])
@@ -36,26 +38,17 @@ def animate(i):
     plt.legend(bbox_to_anchor=[1.05, 1.])#, loc=2, borderaxespad=0.)
     plt.tight_layout()
 
-def trid(Nx, ksi):
-    a = np.ones(Nx + 1) * (-ksi[:, np.newaxis])    # above main diag
-    c = a.copy()                # under main diagonal
-    a[:, 0], c[:, -1] = 0, 0
-    a[:, 1] = -2 * ksi
-    c[:, -2] = -2 * ksi
-    b = np.ones(Nx + 1) * (2 * ksi[:, np.newaxis] + 1)    # main diag
-    return np.array([np.vstack((a[i], b[i], c[i])) for i in [0, 1]])
-
 tic = time.clock()
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
 L = 10                      # space
 Nx = 200                    # space points
 x = np.linspace(0, L, Nx + 1)  # mesh points in space
 dx = x[1] - x[0]            # space step
-T = 5                       # final temperature
+T = 15                       # final temperature
 dt = .005                   # time step
 Nt = round(T/dt)          # time points
 t = np.linspace(0, T, Nt + 1)  # mesh points in time
-D = np.array([1.5, .0])      # diffusion coefficient Dx Dy
+D = np.array([5, 0.0])      # diffusion coefficient Dx Dy
 ksi = 0.5*D*dt/dx*2  # help var
 
 ee = .02
@@ -65,21 +58,30 @@ ff = 2*np.ones(Nx+1)
 #ff = -1/(1+np.exp((x-1)/0.125))+1.5    # with reverb
 
 initialFunc = np.zeros((2, Nx+1))
-initialFunc[0][:5] += 0.1
-
+initialFunc[0][:] = np.genfromtxt('33.out')[::]
+initialFunc[1][:] = np.genfromtxt('44.out')[::]
+#initialFunc[0][201:] = np.genfromtxt('33.out')[:200:]
+#initialFunc[1][201:] = np.genfromtxt('44.out')[:200:]
 q = initialFunc[:]  # current resolve
 R = []              # all resolve
 R.append(q.copy())
-ab = trid(Nx, ksi)  # with NEUMANN CONDITIONS
+ab = np.empty((2, Nx+1, Nx+1))
+for i in range(2):
+    ab[i] = np.diagflat(np.ones(Nx)*(-ksi[i]), -1) +\
+            np.diagflat(np.ones(Nx)*(-ksi[i]), 1) +\
+            np.diagflat(np.ones(Nx + 1)*(2*ksi[i] + 1))
+    ab[i][0, -1] = -ksi[i]
+    ab[i][-1, 0] = -ksi[i]
 side = np.zeros((Nx + 1, 2))    # right-hand vector for matrix eq
 for timeStep in range(Nt):
     runge = RK4(q)
-    side[0] = runge[:,0] + ksi*2*(q[:, 1] - q[:, 0])
-    for i in range(1,Nx):
+    side[0] = runge[:, 0] + ksi*(q[:, -1] - 2*q[:, 0] + q[:, 1])
+    for i in range(1, Nx):
         side[i] = runge[:, i] + ksi*(q[:, i-1] - 2*q[:, i] + q[:, i+1])
-    side[-1] = runge[:, -1] + ksi*2*(q[:, -2] - q[:, -1])
-    q[0] = slin.solve_banded((1, 1), ab[0], side.T[0])
-    q[1] = slin.solve_banded((1, 1), ab[1], side.T[1])
+    side[-1] = runge[:, -1] + ksi*(q[:, -2] - 2*q[:, -1] + q[:, 0])
+# Solve the equation a x = b for x, assuming a is banded matrix  using the matrix diagonal ordered form.
+    q[0] = nlin.solve(ab[0], side.T[0])
+    q[1] = nlin.solve(ab[1], side.T[1])
     R.append(q.copy())
 R = np.array(R)
 plt.close('all')
