@@ -5,14 +5,7 @@ from numba import jit
 import scipy.linalg as slin
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import seaborn as sns
-
-
-# FitzHugh–Nagumo model function
-@jit
-def f(xy):
-    return np.array([500*(-xy[0]*(xy[0] - A)*(xy[0] - 1) - xy[1]), 
-                        xy[0] - xy[1]])
+# import seaborn as sns
 
 
 # Runge Kutta 4th
@@ -53,27 +46,32 @@ def trid(Nx, ksi):
     b = np.ones(Nx + 1) * (2 * ksi[:, np.newaxis] + 1)    # main diag
     return np.array([np.vstack((a[i], b[i], c[i])) for i in [0, 1]])
 
+# FitzHugh–Nagumo model function
+@jit
+def f(xy):
+    return 0.5*np.array([E*(-xy[0]*(xy[0] - A)*(xy[0] - 1) - xy[1]),
+                        xy[0] - xy[1]])
 
 # if __name__ == '__main__':
 tic = time.clock()
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
 # =============================================================================
 # vars
-L = 10                      # space
+L = 20                      # space
 Nx = 200                    # space points
 x = np.linspace(0, L, Nx + 1)  # mesh points in space
 dx = x[1] - x[0]            # space step
-T = 2                       # final time
+T = 5                       # final time
 dt = 0.005                  # time step
 Nt = round(T / dt)          # time points
 t = np.linspace(0, T, Nt + 1)  # mesh points in time
-D = np.array([1, .0])       # diffusion coefficient Dx Dy
+D = np.array([.5, .0])       # diffusion coefficient Dx Dy
 ksi = 0.5 * D * dt / dx**2  # help var
-
+E = 100
 # initial functions
-initialFunc = np.zeros((2, Nx + 1)) + 0.1
+initialFunc = np.zeros((2, Nx + 1))# + 0.1
 # initialFunc[0][:5] += 0.001
-# initialFunc[0] = 1/(1+np.exp((x-1)/0.25))
+initialFunc[0] = 1/(1+np.exp((x-1)/0.25))
 # initialFunc = np.random.rand(2,Nx+1)+0.1
 # =============================================================================
 
@@ -83,7 +81,7 @@ R.append(q.copy())
 ab = trid(Nx, ksi)  # with NEUMANN CONDITIONS
 side = np.zeros((Nx + 1, 2))    # right-hand vector for matrix eq
 A = 0.1 * np.ones(Nx + 1)  # FHN main parameter
-A[:5] = -1 * A[:5]        # Reverb
+A[:5] = -0.2        # Reverb
 for timeStep in range(Nt):
     runge = RK4(q)
 # Neumann conditions: derivatives at the edges are null.
@@ -100,16 +98,16 @@ for timeStep in range(Nt):
     R.append(q.copy())
     if timeStep % 100 == 0: print(timeStep, "/", Nt, time.strftime("%H:%M:%S", time.localtime()))
 R = np.array(R)
-
+#R =  0.5 - 0.5*R
 # =============================================================================
 # Plot block
 # plt.ioff()
 # plt.ion()
 plt.close('all')
-plt.style.use('fivethirtyeight')
+#plt.style.use('fivethirtyeight')
 fig = plt.figure()
 ax1 = fig.add_subplot(1, 1, 1)
-anim = animation.FuncAnimation(fig, animate, range(0, Nt + 1), interval=10)
+anim = animation.FuncAnimation(fig, animate, range(0, Nt + 1, 5), interval=10)
 # =============================================================================
 # Animation save block
 # FFMpegWriter = animation.writers['ffmpeg']

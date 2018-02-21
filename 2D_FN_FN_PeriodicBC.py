@@ -3,15 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mysolver
 import animat
+import winsound
 
 # if __name__ == '__main__':
 tic = time.clock()
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
 # =============================================================================
-L = 10                      # space
-Nx = 100                    # space points
-Ny = 100
-T = 4                       # final time
+L = 20                      # space
+Nx = 200                    # space points
+Ny = 200
+T = 5                       # final time
 dt = 0.005                  # time step
 Nt = round(T/dt)            # time points
 x = np.linspace(0, L, Nx+1) # mesh points in space
@@ -23,20 +24,22 @@ ksi = 0.5*D*dt/dx**2        # help var
 # =============================================================================
 # Initiation of transverse wave
 # 1D FitzHugh–Nagumo model solver
-rangeOf = mysolver.fn(L, Nx, x, dx, T, dt, Nt, 0.3)
+rangeOf = mysolver.fn(L, Nx, x, dx, T, dt, Nt, 200, .5)
 rangeOf = rangeOf[:, 0, :]
+rangeOf = 0.5 - 0.5*rangeOf # modulation
 # =============================================================================
 # initial function
-initialFunc = np.zeros((2, Nx+1, Ny+1))+0.1
+initialFunc = np.zeros((2, Nx+1, Ny+1))
+initialFunc[0] = np.genfromtxt('fnU')#[::2]
+initialFunc[1] = np.genfromtxt('fnV')#[::2]
 q = initialFunc.copy()      # current resolve
 parA = 1
 Qu, Qv = [], []             # all resolve
+
 for iteration in range(Nt):
     A = np.meshgrid(rangeOf[parA], rangeOf[parA])[1]
-    A[:, :5] = 0.65 - 1.1*A[:, :5]  # reverv var
-    A[:, 5:] = 0.65 - 0.7*A[:, 5:]  # oscill var
 # =============================================================================
-    q = mysolver.solveNC(Nx, Ny, dt, ksi, q, A)
+    q = mysolver.solvePC(Nx, Ny, dt, ksi, q, A)
 # =============================================================================
     Qu.append(q[0])
     Qv.append(q[1])
@@ -44,10 +47,10 @@ for iteration in range(Nt):
     if iteration % 100 == 0: print(iteration,"/",Nt,"||",time.strftime("%H:%M:%S", time.localtime()))
 Qu, Qv = np.asarray(Qu), np.asarray(Qv)
 # =============================================================================
-aniPlot = animat.moveIt(Qu, L, Nt, t, 'fnfnnc')
-np.savez('fnfnNC_{}'.format(time.strftime("%Y%m%d-%H%M%S")), Qu)
+aniPlot = animat.moveIt(Qu, L, Nt, t, 'fnfnPC')
+# plt.show()
 # =============================================================================
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
 toc = time.clock()
 print("%5.3f" % (toc-tic))
-plt.show()
+winsound.PlaySound("SystemExit", winsound.SND_ALIAS)

@@ -2,11 +2,10 @@ import time
 import sys
 import numpy as np
 from numba import jit
-# import scipy.linalg as slin
 import numpy.linalg as nlin
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import seaborn as sns
+# import seaborn as sns
 
 
 # FitzHugh–Nagumo model function

@@ -1,5 +1,4 @@
 import time
-import sys
 import numpy as np
 from numba import jit
 import scipy.linalg as slin
@@ -31,9 +30,9 @@ def animate(i):
     plt.xlabel('time: {:03f}s'.format(t[i]))
     plt.yticks()
     plt.xticks()
-    plt.title('$\epsilon$ = {:}, f = {:}, q = {:}'.format(ee, ff[-1], qq), fontsize=12)
-    plt.suptitle('Oregonator', fontsize=10)
-    plt.legend(bbox_to_anchor=[1.05, 1.])#, loc=2, borderaxespad=0.)
+    # plt.title('$\epsilon$ = {:}, f = {:}, q = {:}'.format(ee, ff[-1], qq), fontsize=12)
+    # plt.suptitle('Oregonator', fontsize=10)
+    # plt.legend(bbox_to_anchor=[1.05, 1.])#, loc=2, borderaxespad=0.)
     plt.tight_layout()
 
 def trid(Nx, ksi):
@@ -47,27 +46,26 @@ def trid(Nx, ksi):
 
 tic = time.clock()
 print(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
-L = 10                      # space
-Nx = 200                    # space points
+L = 20                      # space size
+dx = .1                     # space step
+Nx = round(L/dx)
 x = np.linspace(0, L, Nx + 1)  # mesh points in space
-dx = x[1] - x[0]            # space step
 T = 5                       # final temperature
 dt = .005                   # time step
-Nt = round(T/dt)          # time points
+Nt = round(T/dt)            # time points
 t = np.linspace(0, T, Nt + 1)  # mesh points in time
-D = np.array([1.5, .0])      # diffusion coefficient Dx Dy
-ksi = 0.5*D*dt/dx*2  # help var
+D = np.array([1, .0])       # diffusion coefficient Dx Dy
+ksi = 0.5*D*dt/dx*2         # help var
 
 ee = .02
-qq = .03
+qq = .02
 ff = 2*np.ones(Nx+1)
-# ff[:5] = 1.5
-#ff = -1/(1+np.exp((x-1)/0.125))+1.5    # with reverb
+#ff[:10] = 1.8              # with reverb
 
 initialFunc = np.zeros((2, Nx+1))
 initialFunc[0][:5] += 0.1
 
-q = initialFunc[:]  # current resolve
+q = initialFunc.copy()  # current resolve
 R = []              # all resolve
 R.append(q.copy())
 ab = trid(Nx, ksi)  # with NEUMANN CONDITIONS
